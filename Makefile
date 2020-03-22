@@ -120,6 +120,7 @@ clean:
 	-rm -f $(SO_TARGET)
 	-rm -f $(ST_TARGET)
 	-find . -name '*.o' -exec rm {} \;
+	-find . -name '*.sto' -exec rm {} \;
 	-find . -name '*.d' -exec rm {} \;
 
 output:
