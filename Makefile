@@ -34,8 +34,7 @@ endif
 #    TARGET VARS   #
 ####################
 # exporting sane defaults for our various targets
-#export TARGET := lib$(TARGET_NAME)$(STO_END)
-export TARGET := $(TARGET_NAME)
+export TARGET := lib$(TARGET_NAME)$(STO_END)
 export TEST_TARGET := check
 
 MODULES := tests
@@ -86,9 +85,7 @@ clean: TARGET += $(TEST_TARGET)
 # link recipes
 $(TARGET): $(OBJ) $(EXAMPLE_SYSTEMS) $(COMP_TARGET)
 	@echo "========== building $(TARGET) =========="
-	#ar rcs $(TARGET) $(OBJ)
-	$(CC) -o $@ $(OBJ) $(LIBS)
-	./$(TARGET)
+	ar rcs $(TARGET) $(OBJ)
 
 $(TEST_TARGET): $(OBJ) $(TOBJ) $(TARGET)
 	@echo "========== building $(TEST_TARGET) =========="
