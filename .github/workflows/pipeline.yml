@@ -1,0 +1,134 @@
+name: pipeline
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - master
+      - develop
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+
+jobs:
+  ci:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [
+          linux,
+          darwin
+        ]
+
+        include:
+          - name: linux
+            os: ubuntu-latest
+            compiler: gcc
+            so-extension: so
+            sto-extension: a
+          - name: darwin
+            os: macOS-latest
+            compiler: clang
+            so-extension: dylib
+            sto-extension: a
+
+    steps:
+      - uses: actions/checkout@v1
+      - uses: chrislennon/action-aws-cli@v1.1
+
+      - name: install dependencies (ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get install ${{ matrix.compiler }} --yes
+          git clone https://github.com/libcheck/check.git --branch 0.13.0
+          cd check
+          autoreconf --install
+          ./configure
+          make
+          sudo make install
+          sudo ldconfig
+          cd ..
+          rm  -rf check
+
+      - name: install dependencies (macOS)
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install autoconf automake libtool check pkg-config
+
+      - name: compiler version check
+        run: ${{ matrix.compiler }} --version
+
+      - name: clogs
+        run: make CC=${{ matrix.compiler }} TARGET_OS=${{ matrix.name }}
+
+      - name: package
+        run: |
+          ls -lah
+          echo "----------"
+          mkdir clogs-${{ matrix.name }}
+          cp libclogs.* clogs-${{ matrix.name }}
+
+      - name: upload artifact (s3)
+        run: |
+          zip -r clogs.zip clogs-${{ matrix.name }}
+          aws s3 cp clogs.zip s3://$BUCKET/${{ matrix.name }}/clogs-$GITHUB_SHA.zip
+
+  release:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: chrislennon/action-aws-cli@v1.1
+
+      - name: set version variables
+        run: |
+          echo "::set-env name=VERSION::v$(cat .version)"
+
+      - name: create release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          draft: false
+
+      - name: get artifacts (linux)
+        run: |
+          aws s3 cp s3://$BUCKET/linux/clogs-$GITHUB_SHA.zip\
+           clogs-linux-$VERSION
+
+      - name: upload release artifact (linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./clogs-linux-${{ env.VERSION }}
+          asset_name: clogs-linux-${{ env.VERSION }}
+          asset_content_type: application/zip
+
+      - name: get artifacts (darwin)
+        run: |
+          aws s3 cp s3://$BUCKET/darwin/clogs-$GITHUB_SHA.zip\
+           clogs-darwin-$VERSION
+
+      - name: upload release artifact (darwin)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./clogs-darwin-${{ env.VERSION }}
+          asset_name: clogs-darwin-${{ env.VERSION }}
+          asset_content_type: application/zip
