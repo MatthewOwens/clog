@@ -73,8 +73,7 @@ jobs:
           ls -lah
           echo "----------"
           mkdir clogs-${{ matrix.name }}
-          cp *.${{ matrix.so-extension }} clogs-${{ matrix.name }}
-          cp libclogs.${{ matrix.sto-extension }} clogs-${{ matrix.name }}
+          cp libclogs.* clogs-${{ matrix.name }}
 
       - name: upload artifact (s3)
         run: |

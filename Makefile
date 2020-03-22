@@ -34,18 +34,20 @@ endif
 #    TARGET VARS   #
 ####################
 # exporting sane defaults for our various targets
-export TARGET := lib$(TARGET_NAME)$(STO_END)
+export ST_TARGET := lib$(TARGET_NAME)$(STO_END)
+export SO_TARGET := lib$(TARGET_NAME)$(SO_END)
 export TEST_TARGET := check
 
 MODULES := tests
 
 default: all
-all: $(TARGET) $(TEST_TARGET)
+all: $(TARGET_NAME) $(TEST_TARGET)
 
-# base cflags, libs and srcs, used by ecs module
 ## look for include files in each of the modules
 CFLAGS += $(patsubst %,-Isrc/%, $(MODULES)) -Isrc -D_REENTRANT -g -Wall
+SO_CFLAGS := -c -fPIC
 LIBS :=
+SO_LIBS := -ldl
 SRC :=
 
 # extra cflags, libs and srcs for each of our modules/submodules
@@ -63,17 +65,15 @@ include module.mk
 include $(patsubst %, %/module.mk, $(MODULES))
 
 # determining our object files
-OBJ := $(patsubst %.c, %.o, $(filter %.c, $(SRC)))
+ST_OBJ := $(patsubst %.c, %.sto, $(filter %.c, $(SRC)))
 TOBJ := $(patsubst %.c, %.o, $(filter %.c, $(TSRC)))
-
-# include the C include deps
-include $(OBJ:.o=.d)
+SO_OBJ := $(patsubst %.c, %.o, $(filter %.c, $(SRC)))
 
 # setting additional flags for recipe targets
 $(TEST_TARGET): LIBS += $(TLIB)
-$(TEST_TARGET): OBJ := $(filter-out src/main.o, $(OBJ))
+$(TEST_TARGET): OBJ := $(filter-out src/main.%o, $(OBJ))
 
-$(OBJ): CFLAGS += $(ECS_MDEFS)
+$(SO_OBJ): CFLAGS += $(SO_CFLAGS)
 $(TOBJ): CFLAGS += $(TCFLAGS)
 
 clean: OBJ += $(TOBJ)
@@ -82,34 +82,60 @@ clean: TARGET += $(TEST_TARGET)
 ####################
 #     RECIPIES     #
 ####################
+# compile recipes
+$(ST_OBJ): $(SRC)
+	$(CC) $(CFLAGS) -c $^ -o $@
+
+$(SO_OBJ): $(SRC)
+	$(CC) $(CFLAGS) -c $^ -o $@
+
 # link recipes
-$(TARGET): $(OBJ) $(EXAMPLE_SYSTEMS) $(COMP_TARGET)
-	@echo "========== building $(TARGET) =========="
-	ar rcs $(TARGET) $(OBJ)
+$(TARGET_NAME): $(ST_TARGET) $(SO_TARGET)
+	@echo "========== built libs =========="
+
+$(ST_TARGET): $(ST_OBJ)
+	@echo "========== static lib =========="
+ifeq ($(TARGET_OS),windows)
+	@echo "Windows builds are currently unsupported"
+else
+	ar rcs $(ST_TARGET) $(ST_OBJ)
+endif
+
+$(SO_TARGET): $(SO_OBJ)
+	@echo "========== shared lib =========="
+ifeq ($(TARGET_OS),linux)
+	$(CC) -shared -Wl,-soname,$(SO_TARGET),-rpath=. -o $(SO_TARGET) $(SO_OBJ) $(SO_LIBS)
+else ifeq ($(TARGET_OS),darwin)
+	$(CC) -dynamiclib -install_name $(SO_TARGET) -o $(SO_TARGET) $(SO_OBJ) $(SO_LIBS)
+else ifeq ($(TARGET_OS),windows)
+	@echo "Windows builds are currently unsupported"
+endif
 
 $(TEST_TARGET): $(OBJ) $(TOBJ) $(TARGET)
 	@echo "========== building $(TEST_TARGET) =========="
 	$(CC) -o $@ $(OBJ) $(TOBJ) $(LIBS)
 	./$(TEST_TARGET)
 
-
-# calculate the C include deps
-%.d: %.c
-	./depend.sh `dirname $*.c` $(CFLAGS) $*.c > $@
-
 clean:
-	-rm -f $(TARGET)
+	-rm -f $(SO_TARGET)
+	-rm -f $(ST_TARGET)
 	-find . -name '*.o' -exec rm {} \;
 	-find . -name '*.d' -exec rm {} \;
 
 output:
 	@echo "========== $(TARGET) =========="
 	@echo "CFLAGS:"
-	@echo "    $(CFLAGS) $(ECS_MDEFS)"
+	@echo "    $(CFLAGS)"
 	@echo "LIBS:"
 	@echo "    $(LIBS)"
-	@echo "OBJ:"
-	@echo "    $(OBJ)"
+	@echo "ST_OBJ:"
+	@echo "    $(ST_OBJ)"
+	@echo "SO_CFLAGS:"
+	@echo "    $(CFLAGS) $(SO_CFLAGS)"
+	@echo "SO_LIBS:"
+	@echo "    $(SO_LIBS)"
+	@echo "SO_OBJ:"
+	@echo "    $(SO_OBJ)"
 	@echo "========== $(TEST_TARGET) =========="
 	@echo "CFLAGS:"
 	@echo "    $(CFLAGS) $(TCFLAGS)"
