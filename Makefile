@@ -46,7 +46,7 @@ all: $(TARGET_NAME) $(TEST_TARGET)
 ## look for include files in each of the modules
 CFLAGS += $(patsubst %,-Isrc/%, $(MODULES)) -Isrc -D_REENTRANT -g -Wall
 SO_CFLAGS := -c -fPIC
-LIBS :=
+LIBS := -pthread
 SO_LIBS := -ldl
 SRC :=
 
@@ -71,6 +71,7 @@ SO_OBJ := $(patsubst %.c, %.o, $(filter %.c, $(SRC)))
 
 # setting additional flags for recipe targets
 $(TEST_TARGET): LIBS += $(TLIB)
+$(TEST_TARGET): OBJ := $(ST_OBJ)
 $(TEST_TARGET): OBJ := $(filter-out src/main.%o, $(OBJ))
 
 $(SO_OBJ): CFLAGS += $(SO_CFLAGS)
@@ -114,7 +115,7 @@ endif
 $(TEST_TARGET): $(OBJ) $(TOBJ) $(TARGET)
 	@echo "========== building $(TEST_TARGET) =========="
 	$(CC) -o $@ $(OBJ) $(TOBJ) $(LIBS)
-	./$(TEST_TARGET)
+	-./$(TEST_TARGET)
 
 clean:
 	-rm -f $(SO_TARGET)
@@ -143,6 +144,6 @@ output:
 	@echo "LIBS:"
 	@echo "    $(LIBS) $(TLIB)"
 	@echo "OBJ:"
-	@echo "    $(OBJ) $(TOBJ)"
+	@echo "    $(ST_OBJ) $(TOBJ)"
 
 .PHONY: default all clean FORCE

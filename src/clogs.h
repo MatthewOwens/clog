@@ -18,6 +18,10 @@
 	#define ANSI_COLOR_RESET   "\x1b[0m"
 #endif
 
+#define CLOG(msg) clogs_put(CLOGS_INFO, __FUNCTION__, msg)
+#define CLOG_WARN(msg) clogs_put(CLOGS_WARN, __FUNCTION__, msg)
+#define CLOG_ERR(msg) clogs_put(CLOGS_ERR, __FUNCTION__, msg)
+
 #include <stdio.h>
 
 struct clogs;
@@ -29,7 +33,7 @@ enum clogs_level
 	CLOGS_ERR
 };
 
-void init_clogs(const char* logfile);
-void update_clogs();
-void close_clogs();
-void clog(enum clogs_level l, static char* func, static char* msg);
+void clogs_init(const char* logfile);
+void clogs_update();
+void clogs_close();
+void clogs_put(enum clogs_level l, const char* func, const char* msg);
