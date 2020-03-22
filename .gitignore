@@ -45,7 +45,6 @@ build/
 CMakeFiles/
 
 # Make stuff
-Makefile
 CMakeCache.txt
 cmake_install.cmake
 CmakeLists.txtt

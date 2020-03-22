@@ -65,9 +65,6 @@ jobs:
       - name: compiler version check
         run: ${{ matrix.compiler }} --version
 
-      - name: debug
-        run: ls -la
-
       - name: clogs
         run: make
 
