@@ -42,7 +42,7 @@ static struct clogs clog;
 
 void put_clog(static char* lvl, static char* fnc, static char* msg)
 {
-	mtx_lock(put_mtx);
+	mtx_lock(clog.put_mtx);
 
 	if(clog.count < CLOGS_QUEUE_MAX - 1) {
 		clog.last = (clog.last +1) % CLOGS_QUEUE_MAX;
@@ -54,12 +54,12 @@ void put_clog(static char* lvl, static char* fnc, static char* msg)
 		fprintf(stderr, levels[CLOGS_WARN] ": clogs q full!\n");
 	}
 
-	mtx_unlock(put_mtx);
+	mtx_unlock(clog.put_mtx);
 }
 
 void pop_clog()
 {
-	mtx_lock(pop_mtx);
+	mtx_lock(clog.pop_mtx);
 
 	int i = clog.first;
 	// printing clog
@@ -74,7 +74,7 @@ void pop_clog()
 	clog.first = (clog.first + 1) % CLOGS_QUEUE_MAX;
 	clog.count--;
 
-	mtx_unlock(pop_mtx);
+	mtx_unlock(clog.pop_mtx);
 }
 
 void init_clogs(const char* logfile)
@@ -87,8 +87,8 @@ void init_clogs(const char* logfile)
 	clog.last = CLOGS_QUEUE_MAX;
 	clog.count = 0;
 
-	mtx_init(put_mtx, mtx_plain);
-	mtx_init(pop_mtx, mtx_plain);
+	mtx_init(clog.put_mtx, mtx_plain);
+	mtx_init(clog.pop_mtx, mtx_plain);
 }
 
 void update_clogs()
@@ -106,6 +106,9 @@ void close_clogs()
 	if(clog.logfile != NULL){
 		fclose(clog.logfile);
 	}
+
+	mtx_destroy(clog.put_mtx);
+	mtx_destroy(clog.pop_mtx);
 }
 
 void clog(enum clogs_level l, static char* func, static char* msg)

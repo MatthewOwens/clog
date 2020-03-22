@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include "clogs.h"
+#include "thread.h"
 
 int main()
 {
-	printf("hello, tests\n");
 	return 0;
 }
 
