@@ -66,10 +66,7 @@ jobs:
         run: ${{ matrix.compiler }} --version
 
       - name: clogs
-        run: make CC=${{ matrix.compiler }} TARGET_OS=${{ matrix.name }} clogs.${{ matrix.sto-extension }}
-
-      - name: checks
-        run: make CC=${{ matrix.compiler }} TARGET_OS=${{ matrix.name }} check
+        run: make
 
       - name: package
         run: |
