@@ -8,13 +8,14 @@
 #endif
 
 #ifndef CLOGS_MSG_MAX
-	#define CLOGS_MSG_MAX 80
+	#define CLOGS_MSG_MAX 120
 #endif
 
 struct clogs 
 {
 	FILE* logfile;
 	char* msg_queue[CLOGS_QUEUE_MAX][CLOGS_MSG_MAX];
+	int lvl_queue[CLOGS_QUEUE_MAX];
 	int first, last, count;
 
 	FILE* streams[CLOGS_ERR + 1];
@@ -27,9 +28,8 @@ static struct clogs c;
 void clogs_pop()
 {
 	if(c.count > 0) {
-		if(c.logfile != NULL) { fprintf(c.logfile, c.msg_queue[c.first]); }
-
-		printf(c.msg_queue[c.first]);
+		stream_write(c.first);
+		if(c.logfile) { file_write(c.first); }
 		memset(c.msg_queue[c.first], 0, CLOGS_MSG_MAX);
 		c.first = (c.first + 1) % CLOGS_QUEUE_MAX;
 		c.count--;
@@ -55,13 +55,13 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 				c.colors[CLOGS_ERR], c.levels[CLOGS_ERR], __FUNCTION__,
 				ANSI_COLOR_RESET);
 	} else { 
-		char tmp[CLOGS_MSG_MAX] = { '\0' };
+		char tmp[CLOGS_MSG_MAX];
+		int available = CLOGS_MSG_MAX;
 		//TODO: this whole block
 		c.last = (c.last + 1) % CLOGS_QUEUE_MAX;
-		//strcat(c.msg_queue[c.last], 
-		snprintf(c.msg_queue[c.last], CLOGS_MSG_MAX, "%s (%s) ",
+		snprintf(c.msg_queue[c.last], available, "%s (%s) ",
 				c.levels[l], func);
-		int len = strlen(c.msg_queue);
+		available -= strlen(c.msg_queue);
 
 		//TODO: colors, level, func
 		va_list args;
@@ -69,10 +69,25 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 		vsnprintf(tmp, CLOGS_MSG_MAX, format, args);
 		va_end(args);
 
-		strncat(c.msg_queue[c.last], tmp, CLOGS_MSG_MAX-len);
+		strncat(c.msg_queue[c.last], tmp, available);
+		available -= strlen(tmp);
 
+		c.lvl_queue[c.last] = l;
 		c.count++;
 	}
+}
+
+void stream_write(int i){
+	FILE* stream = c.streams[ c.lvl_queue[i] ];
+	fprintf(stream, c.colors[ c.lvl_queue[i] ]);
+	fprintf(stream, c.msg_queue[i]);
+	fprintf(stream, ANSI_COLOR_RESET);
+	fprintf(stream, "\n");
+}
+
+void file_write(int i){
+	fprintf(c.logfile, c.msg_queue[i]);
+	fprintf(c.logfile, "\n");
 }
 
 void clogs_init(const char* logfile)

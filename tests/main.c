@@ -10,7 +10,9 @@ thrd_t threads[THREAD_MAX];
 void foo(void* data)
 {
 	int* thrd = (int *)data;
-	CLOG_ERR("thread %d\n", *thrd);
+	CLOG("thread %d", *thrd);
+	CLOG_WARN("thread %d", *thrd);
+	CLOG_ERR("thread %d", *thrd);
 }
 
 int main()
