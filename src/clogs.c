@@ -23,7 +23,7 @@ struct clogs
 	char* colors[CLOGS_ERR + 1];
 	char* levels[CLOGS_ERR + 1];
 
-	pthread_mutex_t imtx, omtx;
+	pthread_mutex_t mtx;
 	pthread_mutexattr_t mtxattr;
 };
 
@@ -44,7 +44,7 @@ void file_write(int i){
 
 void clogs_pop()
 {
-	pthread_mutex_lock(&c.omtx);
+	pthread_mutex_lock(&c.mtx);
 	if(c.count > 0) {
 		stream_write(c.first);
 		if(c.logfile) { file_write(c.first); }
@@ -52,7 +52,7 @@ void clogs_pop()
 		c.first = (c.first + 1) % CLOGS_QUEUE_MAX;
 		c.count--;
 	}
-	pthread_mutex_unlock(&c.omtx);
+	pthread_mutex_unlock(&c.mtx);
 }
 
 void clogs_flush()
@@ -62,14 +62,14 @@ void clogs_flush()
 	}
 }
 
-void clogs_update() //TODO
+void clogs_update() //TODO: handle OS messages
 {
 	clogs_flush();
 }
 
 void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 {
-	pthread_mutex_lock(&c.imtx);
+	pthread_mutex_lock(&c.mtx);
 	if(c.count >= CLOGS_QUEUE_MAX) {
 		fprintf(c.streams[CLOGS_ERR],"%s%s (%s) CLOGS_QUEUE_MAX reached!%s\n",
 				c.colors[CLOGS_ERR], c.levels[CLOGS_ERR], __FUNCTION__,
@@ -93,7 +93,7 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 		c.lvl_queue[c.last] = l;
 		c.count++;
 	}
-	pthread_mutex_unlock(&c.imtx);
+	pthread_mutex_unlock(&c.mtx);
 }
 
 void clogs_init(const char* logfile)
@@ -116,8 +116,7 @@ void clogs_init(const char* logfile)
 
 	pthread_mutexattr_init(&c.mtxattr);
 	pthread_mutexattr_settype(&c.mtxattr, PTHREAD_MUTEX_RECURSIVE);
-	pthread_mutex_init(&c.imtx, &c.mtxattr);
-	pthread_mutex_init(&c.omtx, &c.mtxattr);
+	pthread_mutex_init(&c.mtx, &c.mtxattr);
 
 	if(logfile != NULL) {
 		c.logfile = fopen(logfile, "w+");
@@ -134,7 +133,6 @@ void clogs_close()
 {
 	clogs_flush();
 	if(c.logfile != NULL) { fclose(c.logfile); }
-	pthread_mutex_destroy(&c.omtx);
-	pthread_mutex_destroy(&c.imtx);
+	pthread_mutex_destroy(&c.mtx);
 	pthread_mutexattr_destroy(&c.mtxattr);
 }
