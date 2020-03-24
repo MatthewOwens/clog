@@ -57,13 +57,11 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 	} else { 
 		char tmp[CLOGS_MSG_MAX];
 		int available = CLOGS_MSG_MAX;
-		//TODO: this whole block
 		c.last = (c.last + 1) % CLOGS_QUEUE_MAX;
 		snprintf(c.msg_queue[c.last], available, "%s (%s) ",
 				c.levels[l], func);
 		available -= strlen(c.msg_queue);
 
-		//TODO: colors, level, func
 		va_list args;
 		va_start(args, format);
 		vsnprintf(tmp, CLOGS_MSG_MAX, format, args);
