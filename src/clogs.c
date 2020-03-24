@@ -62,7 +62,7 @@ void clogs_flush()
 	}
 }
 
-void clogs_update() //TODO
+void clogs_update() //TODO: handle OS messages
 {
 	clogs_flush();
 }
