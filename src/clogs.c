@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <threads.h>
+#include <pthread.h>
 
 #ifndef CLOGS_QUEUE_MAX
 	#define CLOGS_QUEUE_MAX 64
@@ -23,7 +23,8 @@ struct clogs
 	char* colors[CLOGS_ERR + 1];
 	char* levels[CLOGS_ERR + 1];
 
-	mtx_t imtx, omtx;
+	pthread_mutex_t imtx, omtx;
+	pthread_mutexattr_t mtxattr;
 };
 
 static struct clogs c;
@@ -43,7 +44,7 @@ void file_write(int i){
 
 void clogs_pop()
 {
-	mtx_lock(&c.omtx);
+	pthread_mutex_lock(&c.omtx);
 	if(c.count > 0) {
 		stream_write(c.first);
 		if(c.logfile) { file_write(c.first); }
@@ -51,7 +52,7 @@ void clogs_pop()
 		c.first = (c.first + 1) % CLOGS_QUEUE_MAX;
 		c.count--;
 	}
-	mtx_unlock(&c.omtx);
+	pthread_mutex_unlock(&c.omtx);
 }
 
 void clogs_flush()
@@ -68,7 +69,7 @@ void clogs_update() //TODO
 
 void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 {
-	mtx_lock(&c.imtx);
+	pthread_mutex_lock(&c.imtx);
 	if(c.count >= CLOGS_QUEUE_MAX) {
 		fprintf(c.streams[CLOGS_ERR],"%s%s (%s) CLOGS_QUEUE_MAX reached!%s\n",
 				c.colors[CLOGS_ERR], c.levels[CLOGS_ERR], __FUNCTION__,
@@ -92,7 +93,7 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 		c.lvl_queue[c.last] = l;
 		c.count++;
 	}
-	mtx_unlock(&c.imtx);
+	pthread_mutex_unlock(&c.imtx);
 }
 
 void clogs_init(const char* logfile)
@@ -113,8 +114,10 @@ void clogs_init(const char* logfile)
 	c.levels[CLOGS_WARN] = "[warn]";
 	c.levels[CLOGS_ERR] = "[error]";
 
-	mtx_init(&c.imtx, mtx_plain | mtx_recursive);
-	mtx_init(&c.omtx, mtx_plain | mtx_recursive);
+	pthread_mutexattr_init(&c.mtxattr);
+	pthread_mutexattr_settype(&c.mtxattr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&c.imtx, &c.mtxattr);
+	pthread_mutex_init(&c.omtx, &c.mtxattr);
 
 	if(logfile != NULL) {
 		c.logfile = fopen(logfile, "w+");
@@ -131,6 +134,7 @@ void clogs_close()
 {
 	clogs_flush();
 	if(c.logfile != NULL) { fclose(c.logfile); }
-	mtx_destroy(&c.omtx);
-	mtx_destroy(&c.imtx);
+	pthread_mutex_destroy(&c.omtx);
+	pthread_mutex_destroy(&c.imtx);
+	pthread_mutexattr_destroy(&c.mtxattr);
 }
