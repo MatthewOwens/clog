@@ -116,6 +116,7 @@ $(TEST_TARGET): $(OBJ) $(TOBJ) $(TARGET)
 	@echo "========== building $(TEST_TARGET) =========="
 	$(CC) -o $@ $(OBJ) $(TOBJ) $(LIBS)
 	-./$(TEST_TARGET)
+	-rm -f log.txt
 
 clean:
 	-rm -f $(SO_TARGET)
