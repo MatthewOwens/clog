@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <threads.h>
 
 #ifndef CLOGS_QUEUE_MAX
 	#define CLOGS_QUEUE_MAX 64
@@ -21,12 +22,28 @@ struct clogs
 	FILE* streams[CLOGS_ERR + 1];
 	char* colors[CLOGS_ERR + 1];
 	char* levels[CLOGS_ERR + 1];
+
+	mtx_t imtx, omtx;
 };
 
 static struct clogs c;
 
+void stream_write(int i){
+	FILE* stream = c.streams[ c.lvl_queue[i] ];
+	fprintf(stream, c.colors[ c.lvl_queue[i] ]);
+	fprintf(stream, c.msg_queue[i]);
+	fprintf(stream, ANSI_COLOR_RESET);
+	fprintf(stream, "\n");
+}
+
+void file_write(int i){
+	fprintf(c.logfile, c.msg_queue[i]);
+	fprintf(c.logfile, "\n");
+}
+
 void clogs_pop()
 {
+	mtx_lock(&c.omtx);
 	if(c.count > 0) {
 		stream_write(c.first);
 		if(c.logfile) { file_write(c.first); }
@@ -34,6 +51,7 @@ void clogs_pop()
 		c.first = (c.first + 1) % CLOGS_QUEUE_MAX;
 		c.count--;
 	}
+	mtx_unlock(&c.omtx);
 }
 
 void clogs_flush()
@@ -50,6 +68,7 @@ void clogs_update() //TODO
 
 void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 {
+	mtx_lock(&c.imtx);
 	if(c.count >= CLOGS_QUEUE_MAX) {
 		fprintf(c.streams[CLOGS_ERR],"%s%s (%s) CLOGS_QUEUE_MAX reached!%s\n",
 				c.colors[CLOGS_ERR], c.levels[CLOGS_ERR], __FUNCTION__,
@@ -73,19 +92,7 @@ void clogs_put(enum clogs_level l, const char* func, const char* format, ...)
 		c.lvl_queue[c.last] = l;
 		c.count++;
 	}
-}
-
-void stream_write(int i){
-	FILE* stream = c.streams[ c.lvl_queue[i] ];
-	fprintf(stream, c.colors[ c.lvl_queue[i] ]);
-	fprintf(stream, c.msg_queue[i]);
-	fprintf(stream, ANSI_COLOR_RESET);
-	fprintf(stream, "\n");
-}
-
-void file_write(int i){
-	fprintf(c.logfile, c.msg_queue[i]);
-	fprintf(c.logfile, "\n");
+	mtx_unlock(&c.imtx);
 }
 
 void clogs_init(const char* logfile)
@@ -106,6 +113,9 @@ void clogs_init(const char* logfile)
 	c.levels[CLOGS_WARN] = "[warn]";
 	c.levels[CLOGS_ERR] = "[error]";
 
+	mtx_init(&c.imtx, mtx_plain | mtx_recursive);
+	mtx_init(&c.omtx, mtx_plain | mtx_recursive);
+
 	if(logfile != NULL) {
 		c.logfile = fopen(logfile, "w+");
 		if(c.logfile == NULL) { CLOG_ERR("can't open logfile %s!", logfile); }
@@ -121,4 +131,6 @@ void clogs_close()
 {
 	clogs_flush();
 	if(c.logfile != NULL) { fclose(c.logfile); }
+	mtx_destroy(&c.omtx);
+	mtx_destroy(&c.imtx);
 }
