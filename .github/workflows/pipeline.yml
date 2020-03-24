@@ -47,7 +47,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update --yes
-          sudo apt-get upgrade --yes
+          sudo apt-get install --only-upgrade libc-bin libc-dev-bin
           sudo apt-get install ${{ matrix.compiler }} --yes
           git clone https://github.com/libcheck/check.git --branch 0.13.0
           cd check
