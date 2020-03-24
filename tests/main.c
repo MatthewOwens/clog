@@ -9,17 +9,13 @@ thrd_t threads[THREAD_MAX];
 
 void foo(void* data)
 {
-	//char* msg = "this is a test";
-	char msg[5];
 	int* thrd = (int *)data;
-	//printf("thrd is [%d]\n", *thrd);
-	snprintf(msg, 5, "%d", *thrd);
-	CLOG_ERR(msg);
+	CLOG_ERR("thread %d\n", *thrd);
 }
 
 int main()
 {
-	clogs_init(NULL);
+	clogs_init("/tmp/clogs.out");
 	//for(int i = 0; i < THREAD_MAX; ++i){
 	//	thrd_create(&threads[i], foo, &i);
 	//}
