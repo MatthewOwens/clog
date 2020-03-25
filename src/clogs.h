@@ -21,7 +21,7 @@
 #define CLOG(format, ...)\
 	clogs_put(CLOGS_INFO, __FUNCTION__, format, __VA_ARGS__)
 #define CLOG_WARN(format, ...)\
-	clogs_put(CLOGS_WARN, __FUNCTION__, format, __VA_ARGS__)
+	clogs_put(CLOGS_WARN, __FUNCTION__, format, ##__VA_ARGS__)
 #define CLOG_ERR(format, ...)\
 	clogs_put(CLOGS_ERR, __FUNCTION__, format, __VA_ARGS__)
 
